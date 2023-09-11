@@ -86,7 +86,7 @@ server <- function(input, output, session) {
   observeEvent(input$enter, {
     rvs$pin <- pinGen(reactive = FALSE)
     rvs$stimuli <- randomStim(dataFile = "www/stimuli.csv",
-                              what = "trials",
+                              what = "trial",
                               trialCol = "filename",
                               blockCol = NULL,
                               blocksSameOrd = FALSE,
