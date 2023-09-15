@@ -34,11 +34,11 @@ ui <- gridPage(
                               h4("Welcome to..."),
                               h1("Emotional Voices"),
                               p("A simple example experiment."),
-## Add a place for returning participants to enter their identification number----
+                              ## Add a place for returning participants to enter their identification number----
                               textInput(inputId = "returning",
                                         label = "Have you started this experiment previously?
                                         If so, enter your identification number in the box below
-                                        to continue from where you left off before clicking 'ENTER EXPERIMENT'.")
+                                        to continue from where you left off before clicking 'ENTER EXPERIMENT'."),
                               actionButton(inputId = "enter",
                                            label = "Enter Experiment")
                           ),
@@ -59,7 +59,9 @@ ui <- gridPage(
                                      div(id = "stim_area",
                                          style = "background-color:lightgray;
                                                       height:100px; width:250px;",
-                                         uiOutput("stim_word")),
+
+                                         # Make the stimulus initially hidden
+                                         hidden(uiOutput("stim_placeholder"))),
                                      hidden(actionButton(inputId = "invis_start",
                                                          label = "",
                                                          class = "startRec")),
@@ -83,7 +85,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$enter, {
 
-# Handle the returning user----
+    # Handle the returning user----
     if (isTruthy(input$returning)) {
 
       # Does their trial number file exist?----
@@ -92,9 +94,9 @@ server <- function(input, output, session) {
         # If yes, create the reactive values----
         rvs$pin <- input$returning
         rvs$stimuli <- read.csv(paste0("www/outputs/stimuli", input$returning, ".csv"))
-        rvs$trial_n <- as.numeric(paste0("www/outputs/trial_n", input$returning, ".rds"))
+        rvs$trial_n <- as.numeric(readRDS(paste0("www/outputs/trial_n", input$returning, ".rds")))
 
-       # Send them to the block intro----
+        # Send them to the block intro----
         showElement("blockDiv")
         showModal(modalDialog(title = "Welcome Back!",
                               p("Click the button below to pick up from the last trial you completed."),
@@ -114,13 +116,12 @@ server <- function(input, output, session) {
                                   blocksSameOrd = FALSE,
                                   n_practice = 5,
                                   outFile = paste0("www/outputs/stimuli", rvs$pin, ".csv"))
-
         showModal(modalDialog(title = "Invalid ID Number",
-                              h5("That identification number is not valid."),
                               h5(paste0("Your new participant identification number is ", rvs$pin,
                                         ". Please make a note of this number!
                                         You may use it to pause and resume the experiment if necessary.")),
-                              footer = removeModal("I have noted my new ID number.")))
+                              footer = modalButton("I have noted my new ID number."))
+        )
         showElement("consentDiv")
       }
     } else {
@@ -138,11 +139,10 @@ server <- function(input, output, session) {
                             h5(paste0("Your participant identification number is ", rvs$pin,
                                       ". Please make a note of this number!
                                         You may use it to pause and resume the experiment if necessary.")),
-                            footer = removeModal("I have noted my ID number.")))
+                            footer = modalButton("I have noted my ID number.")))
       showElement("consentDiv")
     }
 
-    }
 
     hide("entryDiv")
   })
@@ -208,10 +208,8 @@ server <- function(input, output, session) {
     showElement("trialDiv")
     click("invis_start")
 
-    output$stim_word <- renderUI({
-      # Make the stimulus initially hidden
-      hidden( h1(id = "stim_word",
-                 rvs$stimuli$word[rvs$trial_n]))
+    output$stim_placeholder <- renderUI({
+      h1(paste0(rvs$stimuli$word[rvs$trial_n]))
     })
 
     updateActionButton(session = session,
@@ -224,7 +222,7 @@ server <- function(input, output, session) {
 
   # Show the stimulus 500 ms after starting the recording
   observeEvent(input$invis_start, {
-    delay(500, showElement("stim_word"))
+    delay(500, showElement("stim_placeholder"))
   })
 
   observeEvent(input$trial_btn, {
@@ -233,13 +231,14 @@ server <- function(input, output, session) {
                       value = rvs$trial_n,
                       total = 20)
 
-# Save the trial number to a file----
-    saveRDS(rvs$trial_n, paste0("www/outputs/trial_n", rvs$trial_n, ".rds"))
+    # Save the trial number to a file----
+    saveRDS(rvs$trial_n, paste0("www/outputs/trial_n", rvs$pin, ".rds"))
+
     if (rvs$trial_n < nrow(rvs$stimuli)) {
       if (rvs$stimuli$block[rvs$trial_n] == rvs$stimuli$block[rvs$trial_n + 1]) {
         rvs$trial_n <- rvs$trial_n+1
         hide("trial_btn")
-        hide("stim_word")
+        hide("stim_placeholder")
 
         delay(500, click("invis_start"))
         delay(2000, showElement("trial_btn"))
@@ -268,7 +267,7 @@ server <- function(input, output, session) {
     audio <- gsub("data:audio/wav;base64,", "", audio)
     audio <- gsub(" ", "+", audio)
     audio <- RCurl::base64Decode(audio, mode = "raw")
-    inFile <- file(paste0("www/rec", rvs$pin, "_", rvs$trial_n-1, ".wav"), "wb")
+    inFile <- file(paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n-1, ".wav"), "wb")
     writeBin(audio, inFile)
     close(inFile)
   })
