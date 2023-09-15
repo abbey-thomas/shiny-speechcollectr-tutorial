@@ -200,7 +200,7 @@ server <- function(input, output, session) {
     audio <- gsub("data:audio/wav;base64,", "", audio)
     audio <- gsub(" ", "+", audio)
     audio <- RCurl::base64Decode(audio, mode = "raw")
-    inFile <- file(paste0("www/rec", rvs$pin, "_", rvs$trial_n-1, ".wav"), "wb")
+    inFile <- file(paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n-1, ".wav"), "wb")
     writeBin(audio, inFile)
     close(inFile)
   })

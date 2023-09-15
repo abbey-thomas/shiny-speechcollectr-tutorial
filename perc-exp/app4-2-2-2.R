@@ -152,7 +152,6 @@ server <- function(input, output, session) {
 
   lapply(emos, function(i){
     observeEvent(input[[i]], {
-      print(rvs$conf$ratings)
       rvs$emo_sel <- i
       rvs$end <- Sys.time()
 
