@@ -1,3 +1,45 @@
+# Get recording scripts ready----
+useRecorder <- function(directory = "www") {
+  shiny::tagList(
+    includeScript(paste0(directory, "/rec_frontend.js")),
+    includeScript(paste0(directory, "/rec_backend.js"))
+  )
+}
+
+# Stop and save recording function----
+stopRec <- function(filename) {
+  session <- shiny::getDefaultReactiveDomain()
+
+  randId <- paste0(sample(c(sample(letters, 10),
+                            sample(c(1:9), 10, replace = TRUE)), 20),
+                   collapse = "")
+
+  el2 <- paste0("rec-audio-", randId)
+  session$sendCustomMessage("stopRec", el2)
+
+  observeEvent(session$input[[paste0(el2)]], {
+    audio <- session$input[[paste0(el2)]]
+    audioOut <- gsub("data:audio/wav;base64,", "", audio)
+    audioOut <- gsub(" ", "+", audioOut)
+    audioOut <- RCurl::base64Decode(audioOut, mode = "raw")
+    inFile <- file(paste0(filename), "wb")
+    writeBin(audioOut, inFile)
+    close(inFile)
+  })
+
+  observeEvent(session$input[[paste0(el2)]], priority = -1, {
+    el3 <- paste(filename)
+    session$sendCustomMessage("recDone", el3)
+  })
+}
+
+# Start recording function----
+startRec <- function() {
+  session <- shiny::getDefaultReactiveDomain()
+  el <- shiny::reactiveVal(1)
+  session$sendCustomMessage("startRec", el)
+
+}
 # Load the necessary packages----
 library(shiny)
 library(shinyjs)
@@ -10,6 +52,8 @@ library(dplyr)
 ui <- gridPage(
   tags$head(tags$style(HTML("div { text-align:center; }"))),
   useShinyjs(),
+  useRecorder(),
+
   gridPanel(id = "main",
             areas = list(
               default = c(
@@ -37,7 +81,8 @@ ui <- gridPage(
                           ),
                           hidden(div(id = "consentDiv",
                                      consentUI(id = "consent",
-                                               title = "Do you consent to participate?")
+                                               title = "Do you consent to participate?"
+                                     )
                           )),
                           hidden(div(id = "surveyDiv",
                                      surveyUI(id = "survey",
@@ -61,7 +106,6 @@ ui <- gridPage(
                                                          class = "stopRec",
                                                          style = "width:250px"))
                           )),
-                          useRecorder(),
                           hidden(div(id = "endDiv",
                                      h1("Task complete!"),
                                      h4("Thank you for your participation.")
@@ -146,21 +190,28 @@ server <- function(input, output, session) {
   observeEvent(input$begin_trials, {
     hide("blockDiv")
     showElement("trialDiv")
-    click("invis_start")
-
-    output$stim_word <- renderUI({
-      h1(rvs$stimuli$word[rvs$trial_n])
-    })
+    startRec()
 
     updateActionButton(session = session,
                        inputId = "trial_btn",
                        label = "",
                        icon = icon(rvs$stimuli$icon[rvs$trial_n], class = "fa-3x"))
 
+    output$stim_word <- renderUI({
+      h1(rvs$stimuli$word[rvs$trial_n])
+    })
+  })
+
+  observeEvent(input[["rec-ready"]], {
+    showElement("stim_word")
     delay(1500, showElement("trial_btn"))
   })
 
   observeEvent(input$trial_btn, {
+    stopRec(filename = paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n, ".wav"))
+  })
+
+  observeEvent(input[["rec-done"]], {
     updateProgressBar(session = session,
                       id = "progress",
                       value = rvs$trial_n,
@@ -172,9 +223,7 @@ server <- function(input, output, session) {
         hide("trial_btn")
         hide("stim_word")
 
-        delay(500, showElement("stim_word"))
-        delay(500, click("invis_start"))
-        delay(2000, showElement("trial_btn"))
+        startRec()
 
       } else {
         hide("trialDiv")
@@ -193,16 +242,6 @@ server <- function(input, output, session) {
       show("endDiv")
 
     }
-  })
-
-  observeEvent(input$audioOut, {
-    audio <- input$audioOut
-    audio <- gsub("data:audio/wav;base64,", "", audio)
-    audio <- gsub(" ", "+", audio)
-    audio <- RCurl::base64Decode(audio, mode = "raw")
-    inFile <- file(paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n-1, ".wav"), "wb")
-    writeBin(audio, inFile)
-    close(inFile)
   })
 }
 shinyApp(ui = ui, server = server)

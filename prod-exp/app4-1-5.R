@@ -43,7 +43,9 @@ ui <- gridPage(
                           ## Add the consent interface (initially hidden)----
                           hidden(div(id = "consentDiv",
                                      consentUI(id = "consent",
-                                               title = "Do you consent to participate?")
+                                               title = "Do you consent to participate?",
+                                               cons2rec = FALSE
+                                     )
                           )),
 
                           ## Add interface for collecting demographics----

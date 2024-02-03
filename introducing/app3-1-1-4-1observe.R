@@ -12,7 +12,7 @@ ui <- gridPage(
 server <- function(input, output, session) {
 
   observeEvent(input$button2, {
-    ouput$changing_text <- renderText({
+    output$changing_text <- renderText({
       paste0("You've clicked Button One ", input$button1, " times.")
     })
   })

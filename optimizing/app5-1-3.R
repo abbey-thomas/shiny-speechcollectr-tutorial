@@ -20,6 +20,7 @@ server <- function(input, output, session) {
   phones <- headphoneTestServer(id = "headphone_test", type = "huggins",
                                 n_trials = 6, threshold = 4, n_attempts = 2)
   observe({
+    req(phones())
     if (phones() == 1) {
       output$done <- renderText("Headphone test successfully completed!")
     }

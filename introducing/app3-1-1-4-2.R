@@ -18,7 +18,7 @@ server <- function(input, output, session) {
 
   observe({
     output$changing_text <- renderText({
-      paste0("You have completed trial #", rvs$trial_n)
+      paste0("The current trial number is ", rvs$trial_n)
     })
   })
 }

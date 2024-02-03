@@ -37,7 +37,9 @@ ui <- gridPage(
                           ),
                           hidden(div(id = "consentDiv",
                                      consentUI(id = "consent",
-                                               title = "Do you consent to participate?")
+                                               title = "Do you consent to participate?",
+                                               cons2rec = FALSE
+                                     )
                           )),
                           hidden(div(id = "surveyDiv",
                                      surveyUI(id = "survey",

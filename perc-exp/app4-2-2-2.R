@@ -100,7 +100,8 @@ server <- function(input, output, session) {
 
   consent <- consentServer(
     id = "consent",
-    result = "hide"
+    result = "hide",
+    cons2rec = FALSE
   )
 
   observeEvent(consent$agree, {
@@ -137,6 +138,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$play, {
     conf$ratings <- NULL
+    rvs$emo_sel <- NULL
     hide("trialDisplay1")
     hide("main")
     showElement("trialDisplay2")
