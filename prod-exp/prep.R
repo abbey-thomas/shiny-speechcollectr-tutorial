@@ -68,7 +68,5 @@ stimuli <- data.frame(word = rep(c("adequate", "multiply", "compose",
 # Save the set to a file----
 write.csv(stimuli, "www/stimuli.csv", row.names = FALSE)
 
-# Get the recording JS files into the www directory----
-wwwPrep(recordJS = TRUE)
 
 
