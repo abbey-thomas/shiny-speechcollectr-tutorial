@@ -79,16 +79,13 @@ ui <- gridPage(
                               actionButton(inputId = "enter",
                                            label = "Enter Experiment")
                           ),
-                          hidden(div(id = "consentDiv",
-                                     consentUI(id = "consent",
-                                               title = "Do you consent to participate?"
-                                     )
-                          )),
-                          hidden(div(id = "surveyDiv",
-                                     surveyUI(id = "survey",
-                                              questionFile = "www/demographics.csv",
-                                              title = "Tell us about yourself...")
-                          )),
+                          consentUI(id = "consent",
+                                    title = "Do you consent to participate?"
+                          ),
+                          surveyUI(id = "survey",
+                                   questionFile = "www/demographics.csv",
+                                   title = "Tell us about yourself..."
+                          ),
                           hidden(div(id = "blockDiv",
                                      uiOutput("instruct")
                           )),
@@ -98,12 +95,8 @@ ui <- gridPage(
                                          style = "background-color:lightgray;
                                                       height:100px; width:250px;",
                                          uiOutput("stim_word")),
-                                     hidden(actionButton(inputId = "invis_start",
-                                                         label = "",
-                                                         class = "startRec")),
                                      hidden(actionButton("trial_btn",
                                                          label = "",
-                                                         class = "stopRec",
                                                          style = "width:250px"))
                           )),
                           hidden(div(id = "endDiv",
@@ -128,18 +121,15 @@ server <- function(input, output, session) {
                               n_practice = 5,
                               outFile = paste0("www/outputs/stimuli", rvs$pin, ".csv"))
     hide("entryDiv")
-    showElement("consentDiv")
+    consentServer(
+      id = "consent",
+      result = "hide",
+      cons2rec = TRUE,
+      agreeId = "agree"
+    )
   })
 
-  consent <- consentServer(
-    id = "consent",
-    result = "hide",
-    cons2rec = TRUE
-  )
-
-  observeEvent(consent$agree, {
-    showElement("surveyDiv")
-
+  observeEvent(input$agree, {
     surveyServer(id = "survey",
                  questionFile = "www/demographics.csv",
                  notListedLab = "Not listed:",
@@ -190,7 +180,7 @@ server <- function(input, output, session) {
   observeEvent(input$begin_trials, {
     hide("blockDiv")
     showElement("trialDiv")
-    startRec()
+    startRec(readyId = "ready")
 
     updateActionButton(session = session,
                        inputId = "trial_btn",
@@ -202,16 +192,17 @@ server <- function(input, output, session) {
     })
   })
 
-  observeEvent(input[["rec-ready"]], {
+  observeEvent(input$ready, {
     showElement("stim_word")
     delay(1500, showElement("trial_btn"))
   })
 
   observeEvent(input$trial_btn, {
-    stopRec(filename = paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n, ".wav"))
+    stopRec(filename = paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n, ".wav"),
+            finishedId = "done")
   })
 
-  observeEvent(input[["rec-done"]], {
+  observeEvent(input$done, {
     updateProgressBar(session = session,
                       id = "progress",
                       value = rvs$trial_n,
@@ -223,7 +214,7 @@ server <- function(input, output, session) {
         hide("trial_btn")
         hide("stim_word")
 
-        startRec()
+        startRec(readyId = "ready")
 
       } else {
         hide("trialDiv")
@@ -237,10 +228,8 @@ server <- function(input, output, session) {
         rvs$trial_n <- rvs$trial_n+1
       }
     } else {
-
       hide("trialDiv")
       show("endDiv")
-
     }
   })
 }

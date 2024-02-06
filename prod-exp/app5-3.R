@@ -12,6 +12,8 @@ library(dplyr)
 ui <- gridPage(
   tags$head(tags$style(HTML("div { text-align:center; }"))),
   useShinyjs(),
+  useRecorder(),
+
   gridPanel(id = "main",
             areas = list(
               default = c(
@@ -34,25 +36,23 @@ ui <- gridPage(
                               h4("Welcome to..."),
                               h1("Emotional Voices"),
                               p("A simple example experiment."),
+
                               ## Add a place for returning participants to enter their identification number----
                               textInput(inputId = "returning",
                                         label = "Have you started this experiment previously?
                                         If so, enter your identification number in the box below
                                         to continue from where you left off before clicking 'ENTER EXPERIMENT'."),
+
                               actionButton(inputId = "enter",
                                            label = "Enter Experiment")
                           ),
-                          hidden(div(id = "consentDiv",
-                                     consentUI(id = "consent",
-                                               title = "Do you consent to participate?",
-                                               cons2rec = FALSE
-                                     )
-                          )),
-                          hidden(div(id = "surveyDiv",
-                                     surveyUI(id = "survey",
-                                              questionFile = "www/demographics.csv",
-                                              title = "Tell us about yourself...")
-                          )),
+                          consentUI(id = "consent",
+                                    title = "Do you consent to participate?"
+                          ),
+                          surveyUI(id = "survey",
+                                   questionFile = "www/demographics.csv",
+                                   title = "Tell us about yourself..."
+                          ),
                           hidden(div(id = "blockDiv",
                                      uiOutput("instruct")
                           )),
@@ -61,18 +61,11 @@ ui <- gridPage(
                                      div(id = "stim_area",
                                          style = "background-color:lightgray;
                                                       height:100px; width:250px;",
-
-                                         # Make the stimulus initially hidden
-                                         hidden(uiOutput("stim_placeholder"))),
-                                     hidden(actionButton(inputId = "invis_start",
-                                                         label = "",
-                                                         class = "startRec")),
+                                         uiOutput("stim_word")),
                                      hidden(actionButton("trial_btn",
                                                          label = "",
-                                                         class = "stopRec",
                                                          style = "width:250px"))
                           )),
-                          useRecorder(),
                           hidden(div(id = "endDiv",
                                      h1("Task complete!"),
                                      h4("Thank you for your participation.")
@@ -86,6 +79,7 @@ server <- function(input, output, session) {
   rvs <- reactiveValues(trial_n = 1)
 
   observeEvent(input$enter, {
+    rvs$pin <- pinGen(reactive = FALSE)
 
     # Handle the returning user----
     if (isTruthy(input$returning)) {
@@ -124,7 +118,12 @@ server <- function(input, output, session) {
                                         You may use it to pause and resume the experiment if necessary.")),
                               footer = modalButton("I have noted my new ID number."))
         )
-        showElement("consentDiv")
+        consentServer(
+          id = "consent",
+          result = "hide",
+          cons2rec = TRUE,
+          agreeId = "agree"
+        )
       }
     } else {
       # If they didn't enter a pin, then create one, and show it to the new user.----
@@ -142,22 +141,17 @@ server <- function(input, output, session) {
                                       ". Please make a note of this number!
                                         You may use it to pause and resume the experiment if necessary.")),
                             footer = modalButton("I have noted my ID number.")))
-      showElement("consentDiv")
+      consentServer(
+        id = "consent",
+        result = "hide",
+        cons2rec = TRUE,
+        agreeId = "agree"
+      )
     }
-
-
     hide("entryDiv")
   })
 
-  consent <- consentServer(
-    id = "consent",
-    result = "hide",
-    cons2rec = TRUE
-  )
-
-  observeEvent(consent$agree, {
-    showElement("surveyDiv")
-
+  observeEvent(input$agree, {
     surveyServer(id = "survey",
                  questionFile = "www/demographics.csv",
                  notListedLab = "Not listed:",
@@ -208,43 +202,56 @@ server <- function(input, output, session) {
   observeEvent(input$begin_trials, {
     hide("blockDiv")
     showElement("trialDiv")
-    click("invis_start")
-
-    output$stim_placeholder <- renderUI({
-      h1(paste0(rvs$stimuli$word[rvs$trial_n]))
-    })
+    startRec(readyId = "ready")
 
     updateActionButton(session = session,
                        inputId = "trial_btn",
                        label = "",
                        icon = icon(rvs$stimuli$icon[rvs$trial_n], class = "fa-3x"))
 
+    output$stim_word <- renderUI({
+      h1(rvs$stimuli$word[rvs$trial_n])
+    })
+  })
+
+  observeEvent(input$ready, {
+    # Delay the appearance of the word to be read by 500 ms after recording begins
+    delay(500, showElement("stim_word"))
     delay(1500, showElement("trial_btn"))
   })
 
-  # Show the stimulus 500 ms after starting the recording
-  observeEvent(input$invis_start, {
-    delay(500, showElement("stim_placeholder"))
+  observeEvent(input$trial_btn, {
+    stopRec(filename = paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n, ".wav"),
+            finishedId = "done")
+
+    # Save the trial number to a file----
+    saveRDS(rvs$trial_n, paste0("www/outputs/trial_n", rvs$pin, ".rds"))
+
+
   })
 
-  observeEvent(input$trial_btn, {
+  observeEvent(input$done, {
+
     updateProgressBar(session = session,
                       id = "progress",
                       value = rvs$trial_n,
                       total = 20)
 
-    # Save the trial number to a file----
-    saveRDS(rvs$trial_n, paste0("www/outputs/trial_n", rvs$pin, ".rds"))
-
     if (rvs$trial_n < nrow(rvs$stimuli)) {
       if (rvs$stimuli$block[rvs$trial_n] == rvs$stimuli$block[rvs$trial_n + 1]) {
-        rvs$trial_n <- rvs$trial_n+1
-        hide("trial_btn")
-        hide("stim_placeholder")
 
-        delay(500, click("invis_start"))
-        delay(2000, showElement("trial_btn"))
+        # If this is the first trial, then check recording quality
+        if (rvs$trial_n == 1) {
+          evalWavServer(wave = paste(input$done))
 
+        # Otherwise continue as before...
+        } else {
+          rvs$trial_n <- rvs$trial_n+1
+          hide("trial_btn")
+          hide("stim_word")
+
+          startRec(readyId = "ready")
+        }
       } else {
         hide("trialDiv")
         hide("trial_btn")
@@ -257,21 +264,26 @@ server <- function(input, output, session) {
         rvs$trial_n <- rvs$trial_n+1
       }
     } else {
-
       hide("trialDiv")
       show("endDiv")
-
     }
   })
 
-  observeEvent(input$audioOut, {
-    audio <- input$audioOut
-    audio <- gsub("data:audio/wav;base64,", "", audio)
-    audio <- gsub(" ", "+", audio)
-    audio <- RCurl::base64Decode(audio, mode = "raw")
-    inFile <- file(paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n-1, ".wav"), "wb")
-    writeBin(audio, inFile)
-    close(inFile)
+  ## Once the wav file has been evaluated...
+  observeEvent(input[["evalWav-result"]], {
+
+    ### If the recording is of sufficient quality...
+    if (input[["evalWav-result"]] == "pass") {
+
+      #### proceed with the next trial
+      rvs$trial_n <- rvs$trial_n+1
+      hide("trial_btn")
+      hide("stim_word")
+    }
+
+    #### Whether they passed or not, start recording again...
+    #### But give participant time to close the alert before starting recording again...
+    delay(1500, startRec(readyId = "ready"))
   })
 }
 shinyApp(ui = ui, server = server)

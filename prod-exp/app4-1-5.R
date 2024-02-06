@@ -41,19 +41,16 @@ ui <- gridPage(
                           ),
 
                           ## Add the consent interface (initially hidden)----
-                          hidden(div(id = "consentDiv",
-                                     consentUI(id = "consent",
-                                               title = "Do you consent to participate?",
-                                               cons2rec = FALSE
-                                     )
-                          )),
+                          consentUI(id = "consent",
+                                    title = "Do you consent to participate?"
+                          ),
 
                           ## Add interface for collecting demographics----
-                          hidden(div(id = "surveyDiv",
+                          #hidden(div(id = "surveyDiv",
                                      surveyUI(id = "survey",
                                               questionFile = "www/demographics.csv",
                                               title = "Tell us about yourself...")
-                          ))
+                          #))
             )
   )
 )
@@ -77,20 +74,18 @@ server <- function(input, output, session) {
                               n_practice = 5,
                               outFile = paste0("www/outputs/stimuli", rvs$pin, ".csv"))
     hide("entryDiv")
-    showElement("consentDiv")
+
+    ## Build the consent server----
+    consentServer(
+      id = "consent",
+      result = "hide",
+      cons2rec = TRUE,
+      agreeId = "agree"
+    )
   })
 
-  ## Build the consent server----
-  consent <- consentServer(
-    id = "consent",
-    result = "hide",
-    cons2rec = TRUE
-  )
-
   ## What to do when participant consents----
-  observeEvent(consent$agree, {
-    showElement("surveyDiv")
-
+  observeEvent(input$agree, {
     surveyServer(id = "survey",
                  questionFile = "www/demographics.csv",
                  notListedLab = "Not listed:",

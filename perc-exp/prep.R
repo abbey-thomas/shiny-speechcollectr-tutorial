@@ -53,24 +53,8 @@ feedback <- surveyPrep(questionFile = "www/demographics.csv",
 ## Perception stimuli----
 wwwPrep("perc_stim", is_dir = TRUE)
 
-## Get the duration of each audio recording----
-file_dur <- lapply(list.files(path = "www/perc_stim", full.names = TRUE), function(i){
-  w <- readWave(i, header = TRUE)
-  dur <- ceiling((w$samples/w$sample.rate)*1000)
-  return(dur)
-})
-
-## Make a data frame for storing filenames and durations----
-stim_df <- data.frame(filename = list.files(path = "www/perc_stim")) %>%
-  mutate(emotion = ifelse(grepl("\\dn", filename), "neutral",
-                          ifelse(grepl("\\ds", filename), "sad",
-                                 ifelse(grepl("\\dh", filename), "happy",
-                                        "angry"))),
-         duration = unlist(file_dur)) %>%
-  slice(c(rep(1, times = 2), 2:nrow(.)))
-
-## Save the stimulus data frame to a file----
-write.csv(stim_df, "www/stimuli.csv", row.names = FALSE)
+## Save the stimulus data frame to www----
+wwwPrep("stimuli.csv")
 
 
 
