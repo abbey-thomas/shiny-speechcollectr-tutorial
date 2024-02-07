@@ -17,8 +17,10 @@ server <- function(input, output, session) {
   })
 
   observe({
+    text <- paste0("The current trial number is ", rvs$trial_n)
+
     output$changing_text <- renderText({
-      paste0("The current trial number is ", rvs$trial_n)
+      text
     })
   })
 }
