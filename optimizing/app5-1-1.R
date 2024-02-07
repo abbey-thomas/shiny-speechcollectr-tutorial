@@ -1,12 +1,14 @@
+# Run these lines one time before running this script.
+# You may need to adjust the path to the working directory based on your current working directory.
+# setwd("optimizing")
+# Download sample questions from speechcollectr.
+# data("qualifications")
+# write.csv(qualifications, "qualifications.csv", row.names = FALSE)
+
 library(speechcollectr)
 library(imola)
 library(shiny)
 library(shinyjs)
-
-# Download sample questions from speechcollectr.
-write.csv(data("qualifications"), "www/qualifications.csv", row.names = FALSE)
-
-
 
 ui <- gridPage(
   useShinyjs(),
@@ -20,7 +22,7 @@ ui <- gridPage(
 server <- function(input, output, session) {
   answer <- checkServer(id = "example",
                         trigger = reactive(input$btn),
-                        questionFile = "www/qualifications.csv",
+                        questionFile = "qualifications.csv",
                         outFile = NULL,
                         returnVals = c("eighteen"))
 
