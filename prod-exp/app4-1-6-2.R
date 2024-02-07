@@ -37,8 +37,7 @@ ui <- gridPage(
                           ),
                           hidden(div(id = "consentDiv",
                                      consentUI(id = "consent",
-                                               title = "Do you consent to participate?",
-                                               cons2rec = FALSE
+                                               title = "Do you consent to participate?"
                                      )
                           )),
                           hidden(div(id = "surveyDiv",
@@ -209,7 +208,7 @@ server <- function(input, output, session) {
     } else {
       ## If all trials are complete, let the participant know----
       hide("trialDiv")
-      show("endDiv")
+      showElement("endDiv")
     }
   })
 }

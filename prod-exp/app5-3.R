@@ -265,7 +265,7 @@ server <- function(input, output, session) {
       }
     } else {
       hide("trialDiv")
-      show("endDiv")
+      showElement("endDiv")
     }
   })
 

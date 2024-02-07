@@ -9,6 +9,7 @@ library(shiny)
 library(speechcollectr)
 
 # Set working directory----
+# You may need to change the path here depending on your current working directory
 setwd("prod-exp")
 
 # Make the necessary sub-directories----

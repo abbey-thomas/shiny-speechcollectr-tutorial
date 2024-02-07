@@ -24,4 +24,4 @@ stim_df <- data.frame(filename = list.files(path = "perc_stim")) %>%
   slice(c(rep(1, times = 2), 2:nrow(.)))
 
 ## write it to a csv file
-write.csv(stim_df, "stimuli.csv")
+write.csv(stim_df, "stimuli.csv", row.names = FALSE)
