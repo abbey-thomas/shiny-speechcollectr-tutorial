@@ -61,7 +61,9 @@ ui <- gridPage(
                                      div(id = "stim_area",
                                          style = "background-color:lightgray;
                                                       height:100px; width:250px;",
-                                         uiOutput("stim_word")),
+                                         # Give the stimulus a wrapper so it can be invisible for now and only revealed after a delay----
+                                         hidden(div(id = "stim_container",
+                                                    uiOutput("stim_word")))),
                                      hidden(actionButton("trial_btn",
                                                          label = "",
                                                          style = "width:250px"))
@@ -76,7 +78,7 @@ ui <- gridPage(
 
 # The Server function----
 server <- function(input, output, session) {
-  rvs <- reactiveValues(trial_n = 1)
+  rvs <- reactiveValues(trial_n = 1, rec_eval = FALSE)
 
   observeEvent(input$enter, {
     rvs$pin <- pinGen(reactive = FALSE)
@@ -215,19 +217,38 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$ready, {
+
     # Delay the appearance of the word to be read by 500 ms after recording begins
-    delay(500, showElement("stim_word"))
+    # By delaying the appearance of the container div
+    delay(500, showElement("stim_container"))
     delay(1500, showElement("trial_btn"))
   })
 
   observeEvent(input$trial_btn, {
-    stopRec(filename = paste0("www/outputs/rec", rvs$pin, "_", rvs$trial_n, ".wav"),
-            finishedId = "done")
 
-    # Save the trial number to a file----
-    saveRDS(rvs$trial_n, paste0("www/outputs/trial_n", rvs$pin, ".rds"))
+    # If the wav file has just been evaluated...
+    if (isTRUE(rvs$rec_eval)) {
 
+      # If it passed the evaluation...
+      if (input[["evalWav-result"]] == "pass") {
+        # Move on to the next trial...
+        rvs$trial_n <- rvs$trial_n+1
+      }
 
+      # Whether or not they passed, start recording again...
+      startRec(readyId = "ready")
+      # ... and return this value to false so we don't get stuck here on the next trial
+      rvs$rec_eval <- FALSE
+
+    } else {
+      # Otherwise, stop the recording...
+      stopRec(filename = paste0("www/outputs/rec",
+                                rvs$pin, "_", rvs$trial_n, ".wav"),
+              finishedId = "done")
+
+      # Save the trial number to a file
+      saveRDS(rvs$trial_n, paste0("www/outputs/trial_n", rvs$pin, ".rds"))
+    }
   })
 
   observeEvent(input$done, {
@@ -240,15 +261,17 @@ server <- function(input, output, session) {
     if (rvs$trial_n < nrow(rvs$stimuli)) {
       if (rvs$stimuli$block[rvs$trial_n] == rvs$stimuli$block[rvs$trial_n + 1]) {
 
-        # If this is the first trial, then check recording quality
+        hide("trial_btn")
+        hide("stim_container")
+
+        # If this is the first trial...
         if (rvs$trial_n == 1) {
+          # Evaluate the recording....
           evalWavServer(wave = paste(input$done))
 
-        # Otherwise continue as before...
+          # Otherwise continue to next trial...
         } else {
           rvs$trial_n <- rvs$trial_n+1
-          hide("trial_btn")
-          hide("stim_word")
 
           startRec(readyId = "ready")
         }
@@ -272,18 +295,11 @@ server <- function(input, output, session) {
   ## Once the wav file has been evaluated...
   observeEvent(input[["evalWav-result"]], {
 
-    ### If the recording is of sufficient quality...
-    if (input[["evalWav-result"]] == "pass") {
+    # update the reactive value...
+    rvs$rec_eval <- TRUE
 
-      #### proceed with the next trial
-      rvs$trial_n <- rvs$trial_n+1
-      hide("trial_btn")
-      hide("stim_word")
-    }
-
-    #### Whether they passed or not, start recording again...
-    #### But give participant time to close the alert before starting recording again...
-    delay(1500, startRec(readyId = "ready"))
+    # Make the trial button reappear so we can either record again or move to the next trial
+    showElement("trial_btn")
   })
 }
 shinyApp(ui = ui, server = server)
